@@ -71,6 +71,9 @@ dFalse = DDataStruct "False" []
 -- Functions
 ------------
 
+-- Turns network into a string with newlines for printing
+pNet net = Map.foldrWithKey (\k a s -> s ++ show k ++ " : " ++ show a ++ "\n") "" net
+
 unions :: (Ord a) => Set.Set (Set.Set a) -> Set.Set a
 unions = Set.foldl Set.union Set.empty
 

@@ -224,10 +224,11 @@ pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs
           SDataStruct t v -> certainly (usedNetwork net vs)
 
           SFlip p -> relative [p, 1-p]
-            [Map.insert x sTrue net, Map.insert x sFalse net]
+            [Map.singleton x sTrue, Map.singleton x sFalse]
 
           SIf y z w ->
             let
+              -- TODO: This looks scary!
               yDist = pEval net y (seenBySet net vs y)
 
               -- Calculates distribution for network in yDist

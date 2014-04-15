@@ -199,6 +199,7 @@ seenBy :: (Eq v, Ord v) => ShallowNetwork v -> v -> v -> Set.Set v
 seenBy net y x
     | uses net x y = Set.singleton y
     | otherwise =
+        -- Variables in y's expressions
         let vars = case net Map.! y of
                       SDataStruct _ vs -> vs
                       SIndex z _ -> [z]

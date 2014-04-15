@@ -216,7 +216,7 @@ seenBy net y x
 
 -- Set of variables seen by variables in given set in network net.
 seenBySet :: (Eq v, Ord v) => ShallowNetwork v -> Set.Set v -> v -> Set.Set v
-seenBySet net s x = unions $ Set.map (\y -> seenBy net y x) s
+seenBySet net vs x = unions $ Set.map (\y -> seenBy net y x) vs
 
 -- Creates a distribution of networks for given
 pEval :: (Ord v) => ShallowNetwork v -> v -> Set.Set v -> Dist (ShallowNetwork v)

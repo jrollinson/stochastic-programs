@@ -18,6 +18,10 @@ type Variable = Int
 type Tag = String
 type Probability = Double
 
+
+-- Distribution Definitions
+---------------------------
+
 type Dist a = [(a, Probability)]
 certainly x = [(x, 1)]
 
@@ -28,6 +32,10 @@ relative ps xs =
 
 flattenDist :: Dist (Dist a) -> Dist a
 flattenDist = concat . map (\(dist, p) -> map (\(n,q) -> (n, q * p)) dist)
+
+
+-- Type Definitions
+-------------------
 
 -- A deep expression can have nested expressions
 data DeepExpression = DDataStruct Tag [DeepExpression]
@@ -47,6 +55,10 @@ data ShallowExpression v = SDataStruct Tag [v]
 type DeepNetwork = Map.Map Variable DeepExpression
 type ShallowNetwork var = Map.Map var (ShallowExpression var)
 
+
+-- Helpful values
+-----------------
+
 -- True and false shallow expressions
 sTrue = SDataStruct "True" []
 sFalse = SDataStruct "False" []
@@ -54,6 +66,10 @@ sFalse = SDataStruct "False" []
 -- True and false deep expressions
 dTrue = DDataStruct "True" []
 dFalse = DDataStruct "False" []
+
+
+-- Functions
+------------
 
 -- A random flip with probability p returns sTrue or sFalse
 sFlip :: (RandomGen g) => Probability -> g -> (ShallowExpression v, g)

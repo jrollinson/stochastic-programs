@@ -245,8 +245,11 @@ pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs'
                     mD = pEval n' h (seenBySet n' vs h)
 
                     extend (m',p) =
-                      let e = m' Map.! h
-                      in (Map.insert x e $ addAssignments n' m', p)
+                      let
+                        e = m' Map.! h
+                        fullNet = Map.insert x e $ addAssignments n' m'
+                      in
+                        (usedNetwork fullNet vs, p)
 
                   in map extend mD
 

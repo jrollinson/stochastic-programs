@@ -161,11 +161,11 @@ uses net x y = if x == y then True else case net Map.! x of
 
     SDataStruct _ n -> any (\z -> uses net z y) n
 
-    SIndex y' i -> uses net y' y
+    SIndex a i -> uses net a y
 
     SFlip _ -> False
 
-    SIf y' z w -> (uses net y' y) || (uses net z y) || (uses net w y)
+    SIf a z w -> (uses net a y) || (uses net z y) || (uses net w y)
 
 
 -- Returns a set of variables used by variables in the given set in given

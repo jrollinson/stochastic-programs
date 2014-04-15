@@ -241,7 +241,8 @@ pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs'
                   let
                     n' = addAssignments net m
                     h = if (n' Map.! y == sTrue) then z else w
-                    mD = pEval net h $ seenBySet n' vs h
+                    -- DISAGREES WITH PAPER ON n' in pEval!!!!
+                    mD = pEval n' h (seenBySet n' vs h)
 
                     extend (m',p) =
                       let e = m' Map.! h

@@ -220,8 +220,10 @@ seenBySet net vs x = unions $ Set.map (\y -> seenBy net y x) vs
 
 -- Creates a distribution of networks for given
 pEval :: (Ord v) => ShallowNetwork v -> v -> Set.Set v -> Dist (ShallowNetwork v)
-pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs
+pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs'
     where
+      vs' = Set.insert x vs
+
       pHelp net x vs = case net Map.! x of
 
           SDataStruct t v -> certainly (usedNetwork net vs)

@@ -37,11 +37,15 @@ data DeepExpression = DDataStruct Tag [DeepExpression]
                     deriving (Eq, Show)
 
 -- A shallow expression only has one level of expressions
-data ShallowExpression = SDataStruct Tag [Variable]
-                       | SIndex Variable Int
-                       | SIf Variable Variable Variable
-                       | SFlip Probability
-                       deriving (Eq, Show)
+data ShallowExpression v = SDataStruct Tag [v]
+                            | SIndex v Int
+                            | SIf v v v
+                            | SFlip Probability
+                            deriving (Eq, Show)
+
+-- Defines deep and shallow networks of variables to expressions
+type DeepNetwork = Map.Map Variable DeepExpression
+type ShallowNetwork var = Map.Map var (ShallowExpression var)
 
 -- True and false shallow expressions
 sTrue = SDataStruct "True" []
@@ -52,16 +56,12 @@ dTrue = DDataStruct "True" []
 dFalse = DDataStruct "False" []
 
 -- A random flip with probability p returns sTrue or sFalse
-sFlip :: (RandomGen g) => Probability -> g -> (ShallowExpression, g)
+sFlip :: (RandomGen g) => Probability -> g -> (ShallowExpression v, g)
 sFlip p gen = (if f <= p then sTrue else sFalse, gen')
   where (f,gen') = randomR (0, 1) gen
 
--- Defines deep and shallow networks of variables to expressions
-type DeepNetwork = Map.Map Variable DeepExpression
-type ShallowNetwork = Map.Map Variable ShallowExpression
-
 -- Given a shallow network, and a variable, returns a
-sample :: (RandomGen g) => ShallowNetwork -> Variable -> g -> (ShallowNetwork, g)
+sample :: (RandomGen g, Ord v) => ShallowNetwork v-> v -> g -> (ShallowNetwork v, g)
 sample net x gen = case net Map.! x of
 
     -- x is a data structure so we are finished
@@ -102,7 +102,7 @@ sample net x gen = case net Map.! x of
         (Map.insert x hExp net'', gen'')
 
 
-dist :: ShallowNetwork -> Variable -> Dist ShallowNetwork
+dist :: (Eq v, Ord v) => ShallowNetwork v -> v -> Dist (ShallowNetwork v)
 dist net x = case net Map.! x of
 
     SDataStruct _ _ -> certainly net
@@ -122,7 +122,6 @@ dist net x = case net Map.! x of
         yDistribution = dist net y
 
         -- Computes the distribution for a network with given y value.
-        yDists :: ShallowNetwork -> Dist ShallowNetwork
         yDists n' =
             let
               h = if (n' Map.! y == sTrue) then z else w
@@ -138,7 +137,7 @@ dist net x = case net Map.! x of
 
 -- Returns whether x uses y in net
 -- x uses y if x = y or a variable in the expression for x uses y.
-uses :: ShallowNetwork -> Variable -> Variable -> Bool
+uses :: (Eq v, Ord v) => ShallowNetwork v -> v -> v -> Bool
 uses net x y = if x == y then True else case net Map.! x of
 
     SDataStruct _ n -> any (\z -> uses net z y) n
@@ -152,23 +151,32 @@ uses net x y = if x == y then True else case net Map.! x of
 
 -- Returns a set of variables used by variables in the given set in given
 -- network
-usedSet :: ShallowNetwork -> Set.Set Variable -> Set.Set Variable
-usedSet net = Set.foldr Set.union Set.empty
-            . Set.map (\x -> Set.filter (uses net x) $ Map.keysSet net)
+usedSet :: (Eq v, Ord v) => ShallowNetwork v -> Set.Set v -> Set.Set v
+usedSet net vs =
+    let
+      -- Variables in the network
+      vars = Map.keysSet net
+
+      -- Set of sets of used variables
+      setSetUsed = Set.map (\var -> Set.filter (uses net var) vars) vs
+
+       -- Flattens to one set.
+    in unions setSetUsed
 
 -- Returns subset of network of variables used by varibales in v
-usedNetwork :: ShallowNetwork -> Set.Set Variable -> ShallowNetwork
+usedNetwork :: (Ord v) => ShallowNetwork v -> Set.Set v -> ShallowNetwork v
 usedNetwork net v =
   let s = usedSet net v
   in Map.filterWithKey (\k _ -> Set.member k s) net
 
 
 -- Unions the two networks, with second values on top
-addAssignments :: ShallowNetwork -> ShallowNetwork -> ShallowNetwork
+addAssignments :: (Ord v) => ShallowNetwork v -> ShallowNetwork v ->
+                             ShallowNetwork v
 addAssignments = Map.unionWith (\n m -> m)
 
 -- Set of variables seen by y above x in network net.
-seenBy :: ShallowNetwork -> Variable -> Variable -> Set.Set Variable
+seenBy :: (Eq v, Ord v) => ShallowNetwork v -> v -> v -> Set.Set v
 seenBy net y x
     | uses net x y = Set.singleton y
     | otherwise =
@@ -182,12 +190,12 @@ seenBy net y x
           $ map (\z -> seenBy net z x)
           $ filter (/=x) vars
 
-seenBySet :: ShallowNetwork -> Set.Set Variable -> Variable -> Set.Set Variable
-seenBySet net s x = Set.foldr Set.union Set.empty
-                  $ Set.map (\y -> seenBy net y x) s
+-- Set of variables seen by variables in given set in network net.
+seenBySet :: (Eq v, Ord v) => ShallowNetwork v -> Set.Set v -> v -> Set.Set v
+seenBySet net s x = unions $ Set.map (\y -> seenBy net y x) s
 
 -- Creates a distribution of networks for given
-pEval :: ShallowNetwork -> Variable -> Set.Set Variable -> Dist ShallowNetwork
+pEval :: (Ord v) => ShallowNetwork v -> v -> Set.Set v -> Dist (ShallowNetwork v)
 pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs
     where
       pHelp net x vs = case net Map.! x of
@@ -202,7 +210,6 @@ pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs
               yDist = pEval net y (seenBySet net vs y)
 
               -- Calculates distribution for network in yDist
-              mDist :: ShallowNetwork -> Dist ShallowNetwork
               mDist m =
                   let
                     n' = addAssignments net m

@@ -71,6 +71,9 @@ dFalse = DDataStruct "False" []
 -- Functions
 ------------
 
+unions :: (Ord a) => Set.Set (Set.Set a) -> Set.Set a
+unions = Set.foldl Set.union Set.empty
+
 -- A random flip with probability p returns sTrue or sFalse
 sFlip :: (RandomGen g) => Probability -> g -> (ShallowExpression v, g)
 sFlip p gen = (if f <= p then sTrue else sFalse, gen')
@@ -202,7 +205,8 @@ seenBy net y x
                       SFlip _ -> []
                       SIf a b c -> [a, b, c]
         in
-          foldr Set.union Set.empty
+          -- Unions the set of varibles seen by each v in vars that is not x.
+          Set.unions
           $ map (\z -> seenBy net z x)
           $ filter (/=x) vars
 

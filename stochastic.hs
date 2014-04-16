@@ -13,46 +13,12 @@ module Stochastic
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.List as List
 import System.Random
+
+import Distribution
 
 type Variable = Int
 type Tag = String
-type Probability = Double
-
-
--- Distribution Definitions
----------------------------
-
-type Dist a = [(a, Probability)]
-
--- Returns a singleton distribution
-certainly :: a -> Dist a
-certainly x = [(x, 1)]
-
-relative :: [Probability] -> [a] -> Dist a
-relative ps xs =
-  let s = sum ps
-  in map (\(p, x) -> (x, p/s)) $ zip ps xs
-
-flattenDist :: Dist (Dist a) -> Dist a
-flattenDist = concat . map (\(dist, p) -> map (\(n,q) -> (n, q * p)) dist)
-
-dMap :: (a -> b) -> Dist a -> Dist b
-dMap f d = map (\(x,p) -> (f x, p)) d
-
--- Combines the same items in a distribution
-combineDist :: (Eq a, Ord a, Show a) => Dist a -> Dist a
-combineDist d =
-  let
-    sortedD = List.sortBy (\(n,p) (m,q) -> compare n m) d
-    groupedD = List.groupBy (\(n,p) (m,q) -> n == m) sortedD
-
-    toNetP xs =
-      let (n,_) = head xs
-      in (n, sum $ map (\(_, p) -> p) xs)
-
-  in map toNetP groupedD
 
 -- Type Definitions
 -------------------
@@ -156,7 +122,9 @@ dist net x = case net Map.! x of
 
     --   in
 
-    SFlip p -> relative [p, 1-p] [Map.insert x sTrue net, Map.insert x sFalse net]
+    SFlip p -> relative [ (Map.insert x sTrue net, p)
+                        , (Map.insert x sFalse net, 1-p)
+                        ]
 
     SIf y z w ->
       let
@@ -257,8 +225,8 @@ pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs'
 
           SDataStruct t v -> certainly (usedNetwork net vs)
 
-          SFlip p -> relative [p, 1-p]
-            [Map.singleton x sTrue, Map.singleton x sFalse]
+          SFlip p -> relative [ (Map.singleton x sTrue, p)
+                              , (Map.singleton x sFalse, 1-p)]
 
           SIf y z w ->
             let

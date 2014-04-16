@@ -25,6 +25,9 @@ type Probability = Double
 ---------------------------
 
 type Dist a = [(a, Probability)]
+
+-- Returns a singleton distribution
+certainly :: a -> Dist a
 certainly x = [(x, 1)]
 
 relative :: [Probability] -> [a] -> Dist a
@@ -34,6 +37,9 @@ relative ps xs =
 
 flattenDist :: Dist (Dist a) -> Dist a
 flattenDist = concat . map (\(dist, p) -> map (\(n,q) -> (n, q * p)) dist)
+
+dMap :: (a -> b) -> Dist a -> Dist b
+dMap f d = map (\(x,p) -> (f x, p)) d
 
 -- Combines the same items in a distribution
 combineDist :: (Eq a, Ord a, Show a) => Dist a -> Dist a
@@ -163,10 +169,10 @@ dist net x = case net Map.! x of
               h = if (n' Map.! y == sTrue) then z else w
               hDist = dist n' h
             in
-              map (\(n, p) -> (Map.insert x (n Map.! h) n, p)) hDist
+              dMap (\n -> Map.insert x (n Map.! h) n) hDist
 
         -- A distribution of distributions of networks
-        dists = map (\(n', p) -> (yDists n', p)) yDistribution
+        dists = dMap yDists yDistribution
 
       in flattenDist dists
 
@@ -176,7 +182,7 @@ dist' :: (Show v, Ord v) => ShallowNetwork v -> v -> Set.Set v -> Dist (ShallowN
 dist' net x vs =
     let
       d = dist net x
-      shrunkD = map (\(n,p) -> (usedNetwork n vs, p)) d
+      shrunkD = dMap (\n -> usedNetwork n vs) d
     in
       combineDist shrunkD
 
@@ -267,16 +273,16 @@ pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs'
                     -- DISAGREES WITH PAPER ON n' in pEval!!!!
                     mD = pEval n' h (seenBySet n' vs h)
 
-                    extend (m',p) =
+                    extend m' =
                       let
                         e = m' Map.! h
                         fullNet = Map.insert x e $ addAssignments n' m'
                       in
-                        (usedNetwork fullNet vs, p)
+                        usedNetwork fullNet vs
 
-                  in map extend mD
+                  in dMap extend mD
 
-              dists = map (\(m,p) -> (mDist m, p)) yDist
+              dists = dMap mDist yDist
 
             in
               flattenDist dists

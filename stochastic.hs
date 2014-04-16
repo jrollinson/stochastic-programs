@@ -5,6 +5,7 @@ module Stochastic
 , Tag
 , sample
 , dist
+, dist'
 , pEval
 ) where
 
@@ -12,6 +13,7 @@ module Stochastic
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.List as List
 import System.Random
 
 type Variable = Int
@@ -33,6 +35,18 @@ relative ps xs =
 flattenDist :: Dist (Dist a) -> Dist a
 flattenDist = concat . map (\(dist, p) -> map (\(n,q) -> (n, q * p)) dist)
 
+-- Combines the same items in a distribution
+combineDist :: (Eq a, Ord a, Show a) => Dist a -> Dist a
+combineDist d =
+  let
+    sortedD = List.sortBy (\(n,p) (m,q) -> compare n m) d
+    groupedD = List.groupBy (\(n,p) (m,q) -> n == m) sortedD
+
+    toNetP xs =
+      let (n,_) = head xs
+      in (n, sum $ map (\(_, p) -> p) xs)
+
+  in map toNetP groupedD
 
 -- Type Definitions
 -------------------
@@ -49,7 +63,7 @@ data ShallowExpression v = SDataStruct Tag [v]
                             | SIndex v Int
                             | SIf v v v
                             | SFlip Probability
-                            deriving (Eq, Show)
+                            deriving (Eq, Ord, Show)
 
 -- Defines deep and shallow networks of variables to expressions
 type DeepNetwork = Map.Map Variable DeepExpression
@@ -156,6 +170,15 @@ dist net x = case net Map.! x of
 
       in flattenDist dists
 
+
+-- Uses dist to return a distribution over set V
+dist' :: (Show v, Ord v) => ShallowNetwork v -> v -> Set.Set v -> Dist (ShallowNetwork v)
+dist' net x vs =
+    let
+      d = dist net x
+      shrunkD = map (\(n,p) -> (usedNetwork n vs, p)) d
+    in
+      combineDist shrunkD
 
 -- Returns whether x uses y in net
 -- x uses y if x = y or a variable in the expression for x uses y.

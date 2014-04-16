@@ -7,6 +7,7 @@ module Stochastic
 , dist
 , dist'
 , pEval
+, deepToShallow
 ) where
 
 -- TODO: Add tag checking
@@ -23,12 +24,14 @@ type Tag = String
 -- Type Definitions
 -------------------
 
+type DeepExpVar v = Either (DeepExpression v) v
+
 -- A deep expression can have nested expressions
-data DeepExpression = DDataStruct Tag [DeepExpression]
-                    | DIndex Tag Int
-                    | DIf DeepExpression DeepExpression DeepExpression
-                    | DFlip Probability
-                    deriving (Eq, Show)
+data DeepExpression v = DDataStruct Tag [(DeepExpVar v)]
+                      | DIndex (DeepExpVar v) Int
+                      | DIf (DeepExpVar v) (DeepExpVar v) (DeepExpVar v)
+                      | DFlip Probability
+                      deriving (Eq, Ord, Show)
 
 -- A shallow expression only has one level of expressions
 data ShallowExpression v = SDataStruct Tag [v]
@@ -38,7 +41,7 @@ data ShallowExpression v = SDataStruct Tag [v]
                             deriving (Eq, Ord, Show)
 
 -- Defines deep and shallow networks of variables to expressions
-type DeepNetwork = Map.Map Variable DeepExpression
+type DeepNetwork var = Map.Map var (DeepExpression var)
 type ShallowNetwork var = Map.Map var (ShallowExpression var)
 
 
@@ -56,6 +59,55 @@ dFalse = DDataStruct "False" []
 
 -- Functions
 ------------
+
+-- Transforms a deep network of string variables into a shallow network of
+-- strings
+deepToShallow :: DeepNetwork String -> ShallowNetwork String
+deepToShallow = Map.fold Map.union Map.empty
+              . Map.mapWithKey (\k v -> snd $ toShallow k v)
+  where
+    -- toShallow that takes in DeepExpVar instead of DeepExpression
+    toShallowVar :: String -> (DeepExpVar String)
+                 -> (String, Map.Map String (ShallowExpression String))
+    toShallowVar v (Left exp) = toShallow v exp
+    toShallowVar _ (Right var) = (var, Map.empty)
+
+
+    toShallow :: String
+              -> DeepExpression String
+              -> (String, Map.Map String (ShallowExpression String))
+
+    toShallow v (DDataStruct tag expVars) =
+      let
+        valToExp (x:xs) n =
+          let
+            (v', m) = toShallowVar (v ++ "-" ++ show n) x
+            (vs, mainM) = valToExp xs (n+1)
+          in
+            (v':vs, Map.union m mainM)
+
+        (vs, m) = valToExp expVars 0
+      in
+        (v, Map.insert v (SDataStruct tag vs) m)
+
+
+    toShallow v (DIndex expVar i) =
+      let (v', m) = toShallowVar (v ++ "-inv") expVar
+      in (v, Map.insert v (SIndex v' i) m)
+
+    toShallow v (DIf expVarIf expVarThen expVarElse) =
+      let
+        (ifV, ifM) = toShallowVar (v ++ "-cond") expVarIf
+        (thenV, thenM) = toShallowVar (v ++ "-w-" ++ ifV) expVarThen
+        (elseV, elseM) = toShallowVar (v ++ "-w-n-" ++ ifV) expVarElse
+        m = Map.unions [ifM, thenM, elseM]
+
+        shallowExp = SIf ifV thenV elseV
+      in
+        (v, Map.insert v shallowExp m)
+
+    toShallow v (DFlip p) = (v, Map.singleton v (SFlip p))
+
 
 -- Turns network into a string with newlines for printing
 pNet net = Map.foldrWithKey (\k a s -> s ++ show k ++ " : " ++ show a ++ "\n") "" net

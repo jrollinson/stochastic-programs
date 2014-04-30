@@ -121,6 +121,14 @@ sFlip :: (RandomGen g) => Probability -> g -> (ShallowExpression v, g)
 sFlip p gen = (if f <= p then sTrue else sFalse, gen')
   where (f,gen') = randomR (0, 1) gen
 
+
+-- | Returns the expression variables of a shallow expression
+expressionVars :: ShallowExpression v -> [v]
+expressionVars (SDataStruct _ vars) = vars
+expressionVars (SIndex var _) = [var]
+expressionVars (SIf ifV thenV elseV) = [ifV, thenV, elseV]
+expressionVars (SFlip _) = []
+
 -- Given a shallow network, and a variable, returns a
 sample :: (RandomGen g, Ord v) => ShallowNetwork v-> v -> g -> (ShallowNetwork v, g)
 sample net x gen = case net Map.! x of

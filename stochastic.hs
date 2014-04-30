@@ -218,16 +218,9 @@ dist' net x vs =
 -- Returns whether x uses y in net
 -- x uses y if x = y or a variable in the expression for x uses y.
 uses :: (Eq v, Ord v) => ShallowNetwork v -> v -> v -> Bool
-uses net x y = if x == y then True else case net Map.! x of
-
-    SDataStruct _ n -> any (\z -> uses net z y) n
-
-    SIndex a i -> uses net a y
-
-    SFlip _ -> False
-
-    SIf a z w -> (uses net a y) || (uses net z y) || (uses net w y)
-
+uses net x y = if x == y
+               then True
+               else any (\z -> uses net z y) $ expressionVars $ net Map.! x
 
 -- Returns a set of variables used by variables in the given set in given
 -- network
@@ -261,11 +254,7 @@ seenBy net y x
     | uses net x y = Set.singleton y
     | otherwise =
         -- Variables in y's expressions
-        let vars = case net Map.! y of
-                      SDataStruct _ vs -> vs
-                      SIndex z _ -> [z]
-                      SFlip _ -> []
-                      SIf a b c -> [a, b, c]
+        let vars = expressionVars $ net Map.! y
         in
           -- Unions the set of varibles seen by each v in vars that is not x.
           Set.unions

@@ -115,6 +115,7 @@ deepToShallow = Map.fold Map.union Map.empty
 -- Turns network into a string with newlines for printing
 pNet net = Map.foldrWithKey (\k a s -> s ++ show k ++ " : " ++ show a ++ "\n") "" net
 
+-- Unions a set of sets
 unions :: (Ord a) => Set.Set (Set.Set a) -> Set.Set a
 unions = Set.foldl Set.union Set.empty
 
@@ -221,7 +222,8 @@ dist net x = case getExp net x of
 
 
 -- Uses dist to return a distribution over set V
-dist' :: (Show v, Ord v) => ShallowNetwork v -> v -> Set.Set v -> Dist (ShallowNetwork v)
+dist' :: (Show v, Ord v) => ShallowNetwork v -> v -> Set.Set v
+      -> Dist (ShallowNetwork v)
 dist' net x vs =
     let
       d = dist net x

@@ -41,8 +41,9 @@ data ShallowExpression v = SDataStruct Tag [v]
                             deriving (Eq, Ord, Show)
 
 -- Defines deep and shallow networks of variables to expressions
-type DeepNetwork var = Map.Map var (DeepExpression var)
-type ShallowNetwork var = Map.Map var (ShallowExpression var)
+type Network t var = Map.Map var (t var)
+type DeepNetwork var = Network DeepExpression var
+type ShallowNetwork var = Network ShallowExpression var
 
 
 -- Helpful values

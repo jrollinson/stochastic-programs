@@ -116,6 +116,18 @@ pNet net = Map.foldrWithKey (\k a s -> s ++ show k ++ " : " ++ show a ++ "\n") "
 unions :: (Ord a) => Set.Set (Set.Set a) -> Set.Set a
 unions = Set.foldl Set.union Set.empty
 
+-- Safely gets expression out of a network (never causes exception)
+safeGetExp :: (Ord var) => Network exp var -> var -> Maybe (exp var)
+safeGetExp net x = Map.lookup x net
+
+-- gets expression out of a network
+getExp :: (Ord var) => Network exp var -> var -> exp var
+getExp net x = net Map.! x
+
+-- adds expression to a network
+addExp :: (Ord var) => Network exp var -> var ->  exp var -> Network exp var
+addExp net x exp = Map.insert x exp net
+
 -- A random flip with probability p returns sTrue or sFalse
 sFlip :: (RandomGen g) => Probability -> g -> (ShallowExpression v, g)
 sFlip p gen = (if f <= p then sTrue else sFalse, gen')
@@ -131,7 +143,7 @@ expressionVars (SFlip _) = []
 
 -- Given a shallow network, and a variable, returns a
 sample :: (RandomGen g, Ord v) => ShallowNetwork v-> v -> g -> (ShallowNetwork v, g)
-sample net x gen = case net Map.! x of
+sample net x gen = case getExp net x of
 
     -- x is a data structure so we are finished
     SDataStruct _ _ -> (net, gen)
@@ -142,20 +154,20 @@ sample net x gen = case net Map.! x of
       let
         (net', gen') = sample net y gen
       in
-        case Map.lookup y net' of
+        case safeGetExp net' y of
             Just (SDataStruct t l) ->
               let
                 z = (l !! i)
                 (net'', gen'') = sample net' z gen'
               in
-                (Map.insert x (net'' Map.! z) net'', gen'')
+                (addExp net'' x (getExp net'' z), gen'')
 
-            _ -> (Map.insert x sFalse net', gen')
+            _ -> (addExp net' x sFalse, gen')
 
     -- x is a coin flip. We need to sample to pick whether true or not
     SFlip p ->
       let (exp, gen') = sFlip p gen
-      in (Map.insert x exp net, gen')
+      in (addExp net x exp, gen')
 
     -- x is an if statement.
     -- We need to sample y.
@@ -164,15 +176,15 @@ sample net x gen = case net Map.! x of
     SIf y z w ->
       let
         (net', gen') = sample net y gen
-        h = if (net' Map.! y == sTrue) then z else w
+        h = if (getExp net' y == sTrue) then z else w
         (net'', gen'') = sample net' h gen
-        hExp = net'' Map.! h
+        hExp = getExp net'' h
       in
-        (Map.insert x hExp net'', gen'')
+        (addExp net'' x hExp, gen'')
 
 
 dist :: (Eq v, Ord v) => ShallowNetwork v -> v -> Dist (ShallowNetwork v)
-dist net x = case net Map.! x of
+dist net x = case getExp net x of
 
     SDataStruct _ _ -> certainly net
 
@@ -183,8 +195,8 @@ dist net x = case net Map.! x of
 
     --   in
 
-    SFlip p -> relative [ (Map.insert x sTrue net, p)
-                        , (Map.insert x sFalse net, 1-p)
+    SFlip p -> relative [ (addExp net x sTrue, p)
+                        , (addExp net x sFalse, 1-p)
                         ]
 
     SIf y z w ->
@@ -195,10 +207,10 @@ dist net x = case net Map.! x of
         -- Computes the distribution for a network with given y value.
         yDists n' =
             let
-              h = if (n' Map.! y == sTrue) then z else w
+              h = if (getExp n' y == sTrue) then z else w
               hDist = dist n' h
             in
-              dMap (\n -> Map.insert x (n Map.! h) n) hDist
+              dMap (\n -> addExp n x (getExp n h)) hDist
 
         -- A distribution of distributions of networks
         dists = dMap yDists yDistribution
@@ -220,7 +232,7 @@ dist' net x vs =
 uses :: (Eq v, Ord v) => ShallowNetwork v -> v -> v -> Bool
 uses net x y = if x == y
                then True
-               else any (\z -> uses net z y) $ expressionVars $ net Map.! x
+               else any (\z -> uses net z y) $ expressionVars $ getExp net x
 
 -- Returns a set of variables used by variables in the given set in given
 -- network
@@ -254,7 +266,7 @@ seenBy net y x
     | uses net x y = Set.singleton y
     | otherwise =
         -- Variables in y's expressions
-        let vars = expressionVars $ net Map.! y
+        let vars = expressionVars $ getExp net y
         in
           -- Unions the set of varibles seen by each v in vars that is not x.
           Set.unions
@@ -271,7 +283,7 @@ pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs'
     where
       vs' = Set.insert x vs
 
-      pHelp net x vs = case net Map.! x of
+      pHelp net x vs = case getExp net x of
 
           SDataStruct t v -> certainly (usedNetwork net vs)
 
@@ -287,14 +299,14 @@ pEval net x vs = pHelp (usedNetwork net (Set.singleton x)) x vs'
               mDist m =
                   let
                     n' = addAssignments net m
-                    h = if (n' Map.! y == sTrue) then z else w
+                    h = if (getExp n' y == sTrue) then z else w
                     -- DISAGREES WITH PAPER ON n' in pEval!!!!
                     mD = pEval n' h (seenBySet n' vs h)
 
                     extend m' =
                       let
-                        e = m' Map.! h
-                        fullNet = Map.insert x e $ addAssignments n' m'
+                        e = getExp m' h
+                        fullNet = addExp (addAssignments n' m') x e
                       in
                         usedNetwork fullNet vs
 

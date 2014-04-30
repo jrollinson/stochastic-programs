@@ -157,8 +157,8 @@ sample net x gen = case getExp net x of
       let
         (net', gen') = sample net y gen
       in
-        case safeGetExp net' y of
-            Just (SDataStruct t l) ->
+        case getExp net' y of
+            SDataStruct t l ->
               let
                 z = (l !! i)
                 (net'', gen'') = sample net' z gen'

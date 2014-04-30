@@ -191,12 +191,21 @@ dist net x = case getExp net x of
 
     SDataStruct _ _ -> certainly net
 
-    -- SIndex y i ->
-    --   let
-    --     nDist = dist net y
+    SIndex y i ->
+      let
+        nDist = dist net y
 
+        xDists net' = case getExp net' y of
+          SDataStruct t l ->
+            let
+              z = (l !! i)
+              nDist' = dist net' z
+            in
+              dMap (\n -> addExp n x (getExp n z)) nDist'
 
-    --   in
+          _ -> certainly (addExp net' x sFalse)
+      in
+        flattenDist $ dMap xDists nDist
 
     SFlip p -> relative [ (addExp net x sTrue, p)
                         , (addExp net x sFalse, 1-p)

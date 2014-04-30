@@ -244,8 +244,8 @@ usedNetwork net v =
 
 
 -- Unions the two networks, with second values on top
-addAssignments :: (Ord v) => ShallowNetwork v -> ShallowNetwork v ->
-                             ShallowNetwork v
+addAssignments :: (Ord v) => Network a v -> Network a v ->
+                             Network a v
 addAssignments = Map.unionWith (\n m -> m)
 
 -- Set of variables seen by y above x in network net.

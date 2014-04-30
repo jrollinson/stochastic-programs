@@ -65,18 +65,20 @@ dFalse = DDataStruct "False" []
 -- strings
 deepToShallow :: DeepNetwork String -> ShallowNetwork String
 deepToShallow = Map.fold Map.union Map.empty
-              . Map.mapWithKey (\k v -> snd $ toShallow k v)
+              . Map.mapWithKey (\k v -> toShallow k v)
   where
-    -- toShallow that takes in DeepExpVar instead of DeepExpression
+    -- toShallow that takes in DeepExpVar instead of DeepExpression, and also
+    -- returns the variable that the network is for
     toShallowVar :: String -> (DeepExpVar String)
                  -> (String, Map.Map String (ShallowExpression String))
-    toShallowVar v (Left exp) = toShallow v exp
+    toShallowVar v (Left exp) = (v, toShallow v exp)
     toShallowVar _ (Right var) = (var, Map.empty)
 
 
+    -- Turns an expression into a variable and shallow network for that var
     toShallow :: String
               -> DeepExpression String
-              -> (String, Map.Map String (ShallowExpression String))
+              -> ShallowNetwork String
 
     toShallow v (DDataStruct tag expVars) =
       let
@@ -89,12 +91,12 @@ deepToShallow = Map.fold Map.union Map.empty
 
         (vs, m) = valToExp expVars 0
       in
-        (v, Map.insert v (SDataStruct tag vs) m)
+        addExp m v (SDataStruct tag vs)
 
 
     toShallow v (DIndex expVar i) =
       let (v', m) = toShallowVar (v ++ "-inv") expVar
-      in (v, Map.insert v (SIndex v' i) m)
+      in addExp m v (SIndex v' i)
 
     toShallow v (DIf expVarIf expVarThen expVarElse) =
       let
@@ -105,9 +107,9 @@ deepToShallow = Map.fold Map.union Map.empty
 
         shallowExp = SIf ifV thenV elseV
       in
-        (v, Map.insert v shallowExp m)
+        addExp m v shallowExp
 
-    toShallow v (DFlip p) = (v, Map.singleton v (SFlip p))
+    toShallow v (DFlip p) = Map.singleton v (SFlip p)
 
 
 -- Turns network into a string with newlines for printing

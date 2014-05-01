@@ -1,7 +1,10 @@
 -- |Defines the basic expression typeclass and associated functions
 module Expression
-( Expression(..)
+( -- * Classes
+  Expression(..)
+  -- * Types
 , Network
+  -- * Functions
 , safeGetExp
 , getExp
 , addExp
@@ -19,32 +22,33 @@ import Utils
 
 -- |Typeclass for expressions
 class Expression exp where
-  -- |Constant expression for true
+  -- | Constant expression for true
   trueExp :: exp var
 
-  -- |Constant expression for false
+  -- | Constant expression for false
   falseExp :: exp var
 
-  -- |Returns variables in an expression
+  -- | Returns variables in an expression
   expressionVars :: exp var -> [var]
 
 
--- |A network of expressions
+-- | A network of expressions
 type Network exp var = Map.Map var (exp var)
 
--- |Safely gets expression out of a network (never causes exception)
+
+-- | Safely gets expression out of a network (never causes exception)
 safeGetExp :: (Ord var) => Network exp var -> var -> Maybe (exp var)
 safeGetExp net x = Map.lookup x net
 
--- |gets expression out of a network
+-- | Gets expression out of a network
 getExp :: (Ord var) => Network exp var -> var -> exp var
 getExp net x = net Map.! x
 
--- |adds expression to a network
+-- | Adds expression to a network
 addExp :: (Ord var) => Network exp var -> var ->  exp var -> Network exp var
 addExp net x exp = Map.insert x exp net
 
--- |Returns whether x uses y in net
+-- | Returns whether x uses y in net
 -- x uses y if x = y or a variable in the expression for x uses y.
 uses :: (Eq v, Ord v, Expression exp) => Network exp v -> v -> v -> Bool
 uses net x y = if x == y
@@ -71,14 +75,14 @@ usedSet net vs =
     in unions setSetUsed
 
 
--- |Returns subset of network of variables used by varibales in v
+-- | Returns subset of network of variables used by varibales in v
 usedNetwork :: (Ord v, Expression exp) => Network exp v -> Set.Set v
             -> Network exp v
 usedNetwork net v =
   let s = usedSet net v
   in Map.filterWithKey (\k _ -> Set.member k s) net
 
--- |Set of variables seen by y above x in network net.
+-- | Set of variables seen by y above x in network net.
 seenBy :: (Eq v, Ord v, Expression exp) => Network exp v -> v -> v -> Set.Set v
 seenBy net y x
     | uses net x y = Set.singleton y
@@ -92,12 +96,12 @@ seenBy net y x
           $ map (\z -> seenBy net z x)
           $ filter (/=x) vars
 
--- |Set of variables seen by variables in given set in network net.
+-- | Set of variables seen by variables in given set in network net.
 seenBySet :: (Eq v, Ord v, Expression exp) => Network exp v -> Set.Set v -> v 
           -> Set.Set v
 seenBySet net vs x = unions $ Set.map (\y -> seenBy net y x) vs
 
--- |Unions the two networks, with second values on top
+-- | Unions the two networks, with second values on top
 addAssignments :: (Ord v) => Network a v -> Network a v ->
                              Network a v
 addAssignments = Map.unionWith (\n m -> m)

@@ -55,7 +55,7 @@ sample net x gen = case getExp net x of
       let
         (net', gen') = sample net y gen
         h = if (getExp net' y == trueExp) then z else w
-        (net'', gen'') = sample net' h gen
+        (net'', gen'') = sample net' h gen'
         hExp = getExp net'' h
       in
         (addExp net'' x hExp, gen'')

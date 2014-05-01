@@ -4,10 +4,12 @@ module Expression
   Expression(..)
   -- * Types
 , Network
+, FuncDef(..)
   -- * Functions
 , safeGetExp
 , getExp
 , addExp
+, netVars
 , uses
 , usedSet
 , usedNetwork
@@ -35,6 +37,15 @@ class Expression exp where
 -- | A network of expressions
 type Network exp var = Map.Map var (exp var)
 
+-- | A function definition made up of an output variable and a network and the
+-- input variables.
+data FuncDef exp var = FuncDef var [var] (Network exp var)
+    deriving (Eq, Ord, Show)
+
+netVars :: (Ord var, Expression exp) => Network exp var -> Set.Set var
+netVars net = Set.union (Map.keysSet net) $
+              Set.unions $ Map.elems $ Map.map (Set.fromList . expressionVars)
+              $ net
 
 -- | Safely gets expression out of a network (never causes exception)
 safeGetExp :: (Ord var) => Network exp var -> var -> Maybe (exp var)
@@ -53,7 +64,7 @@ addExp net x exp = Map.insert x exp net
 uses :: (Eq v, Ord v, Expression exp) => Network exp v -> v -> v -> Bool
 uses net x y = if x == y
                then True
-               else 
+               else
                  let
                    expVars = expressionVars $ getExp net x
                  in
@@ -61,7 +72,7 @@ uses net x y = if x == y
 
 -- |Returns a set of variables used by variables in the given set in given
 -- network
-usedSet :: (Eq v, Ord v, Expression exp) => Network exp v -> Set.Set v 
+usedSet :: (Eq v, Ord v, Expression exp) => Network exp v -> Set.Set v
         -> Set.Set v
 usedSet net vs =
     let
@@ -88,8 +99,8 @@ seenBy net y x
     | uses net x y = Set.singleton y
     | otherwise =
         -- Variables in y's expressions
-        let 
-          vars = expressionVars $ getExp net y 
+        let
+          vars = expressionVars $ getExp net y
         in
           -- Unions the set of varibles seen by each v in vars that is not x.
           Set.unions
@@ -97,7 +108,7 @@ seenBy net y x
           $ filter (/=x) vars
 
 -- | Set of variables seen by variables in given set in network net.
-seenBySet :: (Eq v, Ord v, Expression exp) => Network exp v -> Set.Set v -> v 
+seenBySet :: (Eq v, Ord v, Expression exp) => Network exp v -> Set.Set v -> v
           -> Set.Set v
 seenBySet net vs x = unions $ Set.map (\y -> seenBy net y x) vs
 

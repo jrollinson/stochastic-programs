@@ -8,6 +8,10 @@ import Expression
 import ShallowExpression
 import Distribution
 
+import qualified Data.List as List
+import qualified Data.Set as Set
+import qualified Data.Map as Map
+
 -- |A random flip. Returns True with probability p, otherwise False
 sFlip :: (RandomGen g) => Probability -> g -> (ShallowExpression v, g)
 sFlip p gen = (if f <= p then trueExp else falseExp, gen')
@@ -15,7 +19,7 @@ sFlip p gen = (if f <= p then trueExp else falseExp, gen')
 
 -- |Given a shallow network, and a variable, returns a network with x set
 -- randomly by the given function
-sample :: (RandomGen g, Ord v) => ShallowNetwork v -> v -> g
+sample :: (RandomGen g, Ord v, Enum v) => ShallowNetwork v -> v -> g
        -> (ShallowNetwork v, g)
 sample net x gen = case getExp net x of
 
@@ -55,3 +59,34 @@ sample net x gen = case getExp net x of
         hExp = getExp net'' h
       in
         (addExp net'' x hExp, gen'')
+
+    SFunc (FuncDef outputVar inputVars funcNet) argVars ->
+      let
+        -- Variables that will need to be renamed
+        innerVars = Set.delete outputVar $ Map.keysSet funcNet
+
+        -- Returns max variable in the network
+        maxNetV = Set.findMax . netVars
+
+        -- The first variable to be renamed.
+        -- We want the max of both nets so that we don't have conflicts when
+        -- renaming the funcNet vars.
+        nextV = succ $ max (maxNetV net) (maxNetV funcNet)
+
+        -- funcNet with inner variabes renamed
+        (renamedInner, _) = Set.foldr
+                     (\var (net, nV) -> (renameVarNet net var nV, succ nV))
+                     (funcNet, nextV) innerVars
+
+        renamedInputs = List.foldl'
+          (\net (inputV, argV) -> renameVarNet net inputV argV)
+          renamedInner
+          (zip inputVars argVars)
+
+        outputExp = getExp renamedInputs outputVar
+
+        newNet = addAssignments net $
+                 Map.insert x outputExp $
+                 Map.delete outputVar renamedInputs
+      in
+        sample newNet x gen

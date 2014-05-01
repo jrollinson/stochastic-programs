@@ -1,6 +1,7 @@
 -- |Utilities used by Stochastic Function modules
 module Utils
 ( unions
+, netToString
 ) where
 
 import qualified Data.Set as Set
@@ -11,4 +12,4 @@ unions :: (Ord a) => Set.Set (Set.Set a) -> Set.Set a
 unions = Set.foldl Set.union Set.empty
 
 -- |Turns network into a string with newlines for printing
-pNet net = Map.foldrWithKey (\k a s -> s ++ show k ++ " : " ++ show a ++ "\n") "" net
+netToString net = Map.foldrWithKey (\k a s -> s ++ show k ++ " : " ++ show a ++ "\n") "" net
